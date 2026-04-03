@@ -69,6 +69,8 @@ test('signup with email verification', function () {
 | `listEmails(address)` | List emails for an address |
 | `getEmail(address, emailId)` | Get email details |
 | `extractOtp(address, emailId, pattern?)` | Extract OTP code from email |
+| `extractLinks(address, emailId, pattern?)` | Extract links from email |
+| `assertEmail(address, emailId, assertions)` | Assert email properties (subject, from, to, body) |
 | `forwardEmail(address, emailId, to)` | Forward email |
 | `waitForEmails(address, timeout?, count?, since?)` | Wait for email(s) via server-side long-polling |
 | `waitForEmail(address, timeout?, since?)` | Wait for a single email (throws on timeout) |
