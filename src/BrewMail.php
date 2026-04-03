@@ -111,6 +111,16 @@ class BrewMail
         return $this->get("/api/mailbrew/addresses/{$address}/emails/{$emailId}/links{$query}")['data']['links'];
     }
 
+    /**
+     * Assert email properties (subject, from, to, body).
+     *
+     * @return array{passed: bool, email_id: int, results: array}
+     */
+    public function assertEmail(string $address, int $emailId, array $assertions): array
+    {
+        return $this->post("/api/mailbrew/addresses/{$address}/emails/{$emailId}/assert", $assertions)['data'];
+    }
+
     /** Forward an email to another address. */
     public function forwardEmail(string $address, int $emailId, string $to): array
     {
