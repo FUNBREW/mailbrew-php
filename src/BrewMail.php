@@ -121,6 +121,20 @@ class BrewMail
         return $this->post("/api/mailbrew/addresses/{$address}/emails/{$emailId}/assert", $assertions)['data'];
     }
 
+    /**
+     * Verify a sequence of emails arrives in order.
+     *
+     * @param  array<int, array{subject?: string, subject_contains?: string, from?: string, to?: string, body_contains?: string}>  $steps
+     * @return array{passed: bool, steps: array}
+     */
+    public function expectSequence(string $address, array $steps, int $timeout = 30): array
+    {
+        return $this->post("/api/mailbrew/addresses/{$address}/sequence", [
+            'steps' => $steps,
+            'timeout' => $timeout,
+        ])['data'];
+    }
+
     /** Forward an email to another address. */
     public function forwardEmail(string $address, int $emailId, string $to): array
     {
