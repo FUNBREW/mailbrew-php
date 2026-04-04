@@ -122,6 +122,16 @@ class BrewMail
     }
 
     /**
+     * Analyze email deliverability (SPF, DKIM, DMARC, etc.)
+     *
+     * @return array{score: int, checks: array, recommendations: array}
+     */
+    public function deliverability(string $address, int $emailId): array
+    {
+        return $this->get("/api/mailbrew/addresses/{$address}/emails/{$emailId}/deliverability")['data'];
+    }
+
+    /**
      * Verify a sequence of emails arrives in order.
      *
      * @param  array<int, array{subject?: string, subject_contains?: string, from?: string, to?: string, body_contains?: string}>  $steps
