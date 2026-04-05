@@ -30,7 +30,7 @@ class BrewMailTest extends TestCase
     {
         $client = new BrewMail('key');
 
-        $this->assertSame('https://brewmail.dev', $client->getBaseUrl());
+        $this->assertSame('https://mailbrew.dev', $client->getBaseUrl());
     }
 
     public function test_exception_has_status_code(): void

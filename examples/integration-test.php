@@ -43,7 +43,7 @@ echo "Base URL: {$baseUrl}\n\n";
 echo "1. createAddress()\n";
 $addr = $client->createAddress(ttl: 600);
 check(is_string($addr['address']), "address is string: {$addr['address']}");
-check(str_contains($addr['address'], '.brewmail.dev'), 'address contains domain');
+check(str_contains($addr['address'], '.mailbrew.dev'), 'address contains domain');
 check(isset($addr['expires_at']), 'expires_at is present');
 check(is_int($addr['id']), "id is int: {$addr['id']}");
 
@@ -152,7 +152,7 @@ echo "\n11. captureOtp() — creates address and returns OtpCapture\n";
 $capture = $client->captureOtp(ttl: 120);
 check($capture instanceof OtpCapture, 'returns OtpCapture instance');
 check(is_string($capture->address), "has address: {$capture->address}");
-check(str_contains($capture->address, '.brewmail.dev'), 'address contains domain');
+check(str_contains($capture->address, '.mailbrew.dev'), 'address contains domain');
 
 // Cleanup
 $client->deleteAddress($customAddr['address']);

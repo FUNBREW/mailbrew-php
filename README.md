@@ -1,6 +1,6 @@
 # brewmail/sdk
 
-Official PHP SDK for the [BrewMail](https://brewmail.dev) API — programmable disposable email for E2E testing.
+Official PHP SDK for the [BrewMail](https://mailbrew.dev) API — programmable disposable email for E2E testing.
 
 ## Install
 
@@ -17,7 +17,7 @@ $client = new BrewMail('mb_your_api_key');
 
 // Create a temporary email address
 $addr = $client->createAddress(ttl: 3600);
-echo $addr['address']; // "ax7k2m@acme.brewmail.dev"
+echo $addr['address']; // "ax7k2m@acme.mailbrew.dev"
 
 // Wait for an email and extract OTP
 $email = $client->waitForEmail($addr['address']);
@@ -56,7 +56,7 @@ test('signup with email verification', function () {
 | Parameter | Type | Default |
 |-----------|------|---------|
 | `$apiKey` | `string` | *(required)* |
-| `$baseUrl` | `string` | `https://brewmail.dev` |
+| `$baseUrl` | `string` | `https://mailbrew.dev` |
 
 ### Methods
 

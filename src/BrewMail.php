@@ -16,7 +16,7 @@ class BrewMail
 
     public function __construct(
         private string $apiKey,
-        string $baseUrl = 'https://brewmail.dev',
+        string $baseUrl = 'https://mailbrew.dev',
     ) {
         $this->baseUrl = rtrim($baseUrl, '/');
         $this->http = new Client([
