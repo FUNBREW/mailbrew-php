@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace BrewMail;
+namespace MailBrew;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
 
-class BrewMail
+class MailBrew
 {
     private Client $http;
 
@@ -176,14 +176,14 @@ class BrewMail
     /**
      * Wait for a single email to arrive.
      *
-     * @throws BrewMailException If no email arrives within the timeout
+     * @throws MailBrewException If no email arrives within the timeout
      */
     public function waitForEmail(string $address, int $timeout = 30, ?string $since = null): array
     {
         $emails = $this->waitForEmails($address, $timeout, 1, $since);
 
         if (empty($emails)) {
-            throw new BrewMailException('Timeout waiting for email');
+            throw new MailBrewException('Timeout waiting for email');
         }
 
         return $emails[0];
@@ -273,9 +273,9 @@ class BrewMail
             $body = $response ? json_decode($response->getBody()->getContents(), true) : null;
             $message = $body['message'] ?? 'API request failed';
 
-            throw new BrewMailException($message, $statusCode, $e);
+            throw new MailBrewException($message, $statusCode, $e);
         } catch (GuzzleException $e) {
-            throw new BrewMailException('Network error: '.$e->getMessage(), 0, $e);
+            throw new MailBrewException('Network error: '.$e->getMessage(), 0, $e);
         }
     }
 }

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace BrewMail;
+namespace MailBrew;
 
-class BrewMailException extends \RuntimeException
+class MailBrewException extends \RuntimeException
 {
     public function __construct(
         string $message,

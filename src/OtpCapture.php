@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace BrewMail;
+namespace MailBrew;
 
 class OtpCapture
 {
     public function __construct(
-        private BrewMail $client,
+        private MailBrew $client,
         public readonly string $address,
         private int $timeout,
         private ?string $pattern,
@@ -18,7 +18,7 @@ class OtpCapture
      *
      * @return array{code: string, email: array}
      *
-     * @throws BrewMailException
+     * @throws MailBrewException
      */
     public function waitAndExtract(): array
     {

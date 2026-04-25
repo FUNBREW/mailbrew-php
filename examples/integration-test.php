@@ -1,25 +1,25 @@
 <?php
 
 /**
- * BrewMail PHP SDK — Integration test against a real Laravel server.
+ * MailBrew PHP SDK — Integration test against a real Laravel server.
  *
  * Usage:
  *   cd sdks/php
- *   BREWMAIL_API_KEY=mb_sdk_integration_test_key_12345 \
- *   BREWMAIL_BASE_URL=http://127.0.0.1:8199 \
+ *   MAILBREW_API_KEY=mb_sdk_integration_test_key_12345 \
+ *   MAILBREW_BASE_URL=http://127.0.0.1:8199 \
  *   php examples/integration-test.php
  */
 
 require_once __DIR__.'/../vendor/autoload.php';
 
-use BrewMail\BrewMail;
-use BrewMail\BrewMailException;
-use BrewMail\OtpCapture;
+use MailBrew\MailBrew;
+use MailBrew\MailBrewException;
+use MailBrew\OtpCapture;
 
-$apiKey = getenv('BREWMAIL_API_KEY') ?: 'mb_sdk_integration_test_key_12345';
-$baseUrl = getenv('BREWMAIL_BASE_URL') ?: 'http://127.0.0.1:8199';
+$apiKey = getenv('MAILBREW_API_KEY') ?: getenv('BREWMAIL_API_KEY') ?: 'mb_sdk_integration_test_key_12345';
+$baseUrl = getenv('MAILBREW_BASE_URL') ?: getenv('BREWMAIL_BASE_URL') ?: 'http://127.0.0.1:8199';
 
-$client = new BrewMail($apiKey, $baseUrl);
+$client = new MailBrew($apiKey, $baseUrl);
 
 $passed = 0;
 $failed = 0;
@@ -36,7 +36,7 @@ function check(bool $condition, string $label): void
     }
 }
 
-echo "\nBrewMail PHP SDK Integration Test\n";
+echo "\nMailBrew PHP SDK Integration Test\n";
 echo "Base URL: {$baseUrl}\n\n";
 
 // --- 1. Create Address ---
@@ -82,12 +82,12 @@ check(count($waited) === 0, 'empty (timed out)');
 check($elapsed >= 1.5, sprintf('waited ~2s (%.1fs)', $elapsed));
 
 // --- 6. waitForEmail (timeout → throws) ---
-echo "\n6. waitForEmail() — timeout throws BrewMailException\n";
+echo "\n6. waitForEmail() — timeout throws MailBrewException\n";
 try {
     $client->waitForEmail($addr['address'], timeout: 2);
     check(false, 'should have thrown');
-} catch (BrewMailException $e) {
-    check(true, 'throws BrewMailException');
+} catch (MailBrewException $e) {
+    check(true, 'throws MailBrewException');
     check(str_contains($e->getMessage(), 'Timeout'), "message: {$e->getMessage()}");
 }
 
@@ -130,7 +130,7 @@ $client->deleteAddress($addr['address']);
 try {
     $client->getAddress($addr['address']);
     check(false, 'should have thrown 404');
-} catch (BrewMailException $e) {
+} catch (MailBrewException $e) {
     check(true, 'throws on deleted address');
     check($e->statusCode === 404, "status 404 (got {$e->statusCode})");
 }
@@ -138,12 +138,12 @@ try {
 // --- 10. Error handling — invalid API key ---
 echo "\n10. Error handling — invalid API key\n";
 sleep(1);
-$badClient = new BrewMail('mb_invalid_key', $baseUrl);
+$badClient = new MailBrew('mb_invalid_key', $baseUrl);
 try {
     $badClient->listAddresses();
     check(false, 'should have thrown');
-} catch (BrewMailException $e) {
-    check(true, 'throws BrewMailException');
+} catch (MailBrewException $e) {
+    check(true, 'throws MailBrewException');
     check($e->statusCode === 401, "status 401 (got {$e->statusCode})");
 }
 

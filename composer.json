@@ -1,6 +1,6 @@
 {
-    "name": "brewmail/sdk",
-    "description": "Official PHP SDK for the BrewMail API — programmable disposable email for E2E testing",
+    "name": "mailbrew/sdk",
+    "description": "Official PHP SDK for the MailBrew API — programmable disposable email for E2E testing",
     "type": "library",
     "license": "MIT",
     "require": {
@@ -12,13 +12,13 @@
     },
     "autoload": {
         "psr-4": {
-            "BrewMail\\": "src/"
+            "MailBrew\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "BrewMail\\Tests\\": "tests/"
+            "MailBrew\\Tests\\": "tests/"
         }
     },
-    "keywords": ["email", "api", "disposable-email", "e2e-testing", "otp", "brewmail"]
+    "keywords": ["email", "api", "disposable-email", "e2e-testing", "otp", "mailbrew"]
 }

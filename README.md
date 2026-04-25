@@ -1,19 +1,21 @@
-# brewmail/sdk
+# mailbrew/sdk
 
-Official PHP SDK for the [BrewMail](https://mailbrew.dev) API — programmable disposable email for E2E testing.
+Official PHP SDK for the [MailBrew](https://mailbrew.dev) API — programmable disposable email for E2E testing.
+
+> **Migrating from `brewmail/sdk`?** The package was renamed in v2.0.0. See [Migration](#migrating-from-brewmailsdk).
 
 ## Install
 
 ```bash
-composer require brewmail/sdk
+composer require mailbrew/sdk
 ```
 
 ## Quick Start
 
 ```php
-use BrewMail\BrewMail;
+use MailBrew\MailBrew;
 
-$client = new BrewMail('mb_your_api_key');
+$client = new MailBrew('mb_your_api_key');
 
 // Create a temporary email address
 $addr = $client->createAddress(ttl: 3600);
@@ -28,10 +30,10 @@ echo $code; // "847291"
 ## E2E Test Example (Pest / PHPUnit)
 
 ```php
-use BrewMail\BrewMail;
+use MailBrew\MailBrew;
 
 test('signup with email verification', function () {
-    $mail = new BrewMail(env('BREWMAIL_API_KEY'));
+    $mail = new MailBrew(env('MAILBREW_API_KEY'));
     $capture = $mail->captureOtp(ttl: 120);
 
     // 1. Sign up with the disposable address
@@ -51,7 +53,7 @@ test('signup with email verification', function () {
 
 ## API
 
-### `new BrewMail(apiKey, baseUrl)`
+### `new MailBrew(apiKey, baseUrl)`
 
 | Parameter | Type | Default |
 |-----------|------|---------|
@@ -79,3 +81,17 @@ test('signup with email verification', function () {
 | `updateWebhook(id, data)` | Update a webhook |
 | `deleteWebhook(id)` | Delete a webhook |
 | `captureOtp(ttl?, timeout?, pattern?)` | Create address + prepare OTP capture |
+
+## Migrating from `brewmail/sdk`
+
+`brewmail/sdk` v1.x is deprecated. Migrate by replacing:
+
+| Before (v1.x) | After (v2.x) |
+| ------------- | ------------ |
+| `composer require brewmail/sdk` | `composer require mailbrew/sdk` |
+| `use BrewMail\BrewMail;` | `use MailBrew\MailBrew;` |
+| `use BrewMail\BrewMailException;` | `use MailBrew\MailBrewException;` |
+| `use BrewMail\OtpCapture;` | `use MailBrew\OtpCapture;` |
+| `BREWMAIL_API_KEY` env var | `MAILBREW_API_KEY` (old name still honored as fallback in examples) |
+
+The HTTP API itself is unchanged.
