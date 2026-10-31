@@ -16,8 +16,8 @@ use MailBrew\MailBrew;
 use MailBrew\MailBrewException;
 use MailBrew\OtpCapture;
 
-$apiKey = getenv('MAILBREW_API_KEY') ?: getenv('BREWMAIL_API_KEY') ?: 'mb_sdk_integration_test_key_12345';
-$baseUrl = getenv('MAILBREW_BASE_URL') ?: getenv('BREWMAIL_BASE_URL') ?: 'http://127.0.0.1:8199';
+$apiKey = getenv('MAILBREW_API_KEY') ?: 'mb_sdk_integration_test_key_12345';
+$baseUrl = getenv('MAILBREW_BASE_URL') ?: 'http://127.0.0.1:8199';
 
 $client = new MailBrew($apiKey, $baseUrl);
 

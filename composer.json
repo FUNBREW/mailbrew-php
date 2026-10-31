@@ -3,6 +3,12 @@
     "description": "Official PHP SDK for the MailBrew API — programmable disposable email for E2E testing",
     "type": "library",
     "license": "MIT",
+    "homepage": "https://mailbrew.dev",
+    "support": {
+        "source": "https://github.com/FUNBREW/mailbrew-php",
+        "issues": "https://github.com/FUNBREW/mailbrew-php/issues",
+        "docs": "https://mailbrew.dev/docs"
+    },
     "require": {
         "php": ">=8.1",
         "guzzlehttp/guzzle": "^7.0"
@@ -20,5 +26,12 @@
             "MailBrew\\Tests\\": "tests/"
         }
     },
-    "keywords": ["email", "api", "disposable-email", "e2e-testing", "otp", "mailbrew"]
+    "keywords": [
+        "email",
+        "api",
+        "disposable-email",
+        "e2e-testing",
+        "otp",
+        "mailbrew"
+    ]
 }

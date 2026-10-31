@@ -2,8 +2,6 @@
 
 Official PHP SDK for the [MailBrew](https://mailbrew.dev) API — programmable disposable email for E2E testing.
 
-> **Migrating from `brewmail/sdk`?** The package was renamed in v2.0.0. See [Migration](#migrating-from-brewmailsdk).
-
 ## Install
 
 ```bash
@@ -81,17 +79,3 @@ test('signup with email verification', function () {
 | `updateWebhook(id, data)` | Update a webhook |
 | `deleteWebhook(id)` | Delete a webhook |
 | `captureOtp(ttl?, timeout?, pattern?)` | Create address + prepare OTP capture |
-
-## Migrating from `brewmail/sdk`
-
-`brewmail/sdk` v1.x is deprecated. Migrate by replacing:
-
-| Before (v1.x) | After (v2.x) |
-| ------------- | ------------ |
-| `composer require brewmail/sdk` | `composer require mailbrew/sdk` |
-| `use BrewMail\BrewMail;` | `use MailBrew\MailBrew;` |
-| `use BrewMail\BrewMailException;` | `use MailBrew\MailBrewException;` |
-| `use BrewMail\OtpCapture;` | `use MailBrew\OtpCapture;` |
-| `BREWMAIL_API_KEY` env var | `MAILBREW_API_KEY` (old name still honored as fallback in examples) |
-
-The HTTP API itself is unchanged.
