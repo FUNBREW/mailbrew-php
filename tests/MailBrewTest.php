@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MailBrew\Tests;
 
+use GuzzleHttp\Handler\MockHandler;
+use GuzzleHttp\HandlerStack;
+use GuzzleHttp\Psr7\Response;
 use MailBrew\MailBrew;
 use MailBrew\MailBrewException;
 use MailBrew\OtpCapture;
@@ -56,5 +59,59 @@ class MailBrewTest extends TestCase
         $capture = new OtpCapture($client, 'test@example.com', 30, '\d{6}');
 
         $this->assertSame('test@example.com', $capture->address);
+    }
+
+    private function clientWith(MockHandler $mock, int $maxRetries = 2): MailBrew
+    {
+        return new MailBrew('key', 'http://api.test', maxRetries: $maxRetries, handler: HandlerStack::create($mock));
+    }
+
+    private function rateLimited(string $retryAfter = '0'): Response
+    {
+        return new Response(429, ['Retry-After' => $retryAfter], json_encode(['message' => 'Rate limit exceeded.']));
+    }
+
+    // 429 のとき Retry-After だけ待って再試行する（Node / Python SDK と同じ）
+    public function test_retries_on_429_and_returns_the_success(): void
+    {
+        $mock = new MockHandler([
+            $this->rateLimited(),
+            new Response(201, [], json_encode(['data' => ['address' => 'abc@x.mailbrew.dev']])),
+        ]);
+
+        $addr = $this->clientWith($mock)->createAddress();
+
+        $this->assertSame('abc@x.mailbrew.dev', $addr['address']);
+        $this->assertSame(0, $mock->count());
+    }
+
+    public function test_gives_up_after_max_retries_with_retry_after(): void
+    {
+        $mock = new MockHandler([$this->rateLimited(), $this->rateLimited(), $this->rateLimited(), $this->rateLimited()]);
+
+        try {
+            $this->clientWith($mock, maxRetries: 2)->createAddress();
+            $this->fail('MailBrewException was not thrown');
+        } catch (MailBrewException $e) {
+            $this->assertSame(429, $e->statusCode);
+            $this->assertSame(0, $e->retryAfter);
+        }
+        $this->assertSame(1, $mock->count()); // 最初の 1 回 + 再試行 2 回で 3 つ使う
+    }
+
+    public function test_does_not_retry_other_errors(): void
+    {
+        $mock = new MockHandler([
+            new Response(404, [], json_encode(['message' => 'Address not found.'])),
+            new Response(201, [], json_encode(['data' => ['address' => 'never']])),
+        ]);
+
+        try {
+            $this->clientWith($mock)->createAddress();
+            $this->fail('MailBrewException was not thrown');
+        } catch (MailBrewException $e) {
+            $this->assertSame(404, $e->statusCode);
+        }
+        $this->assertSame(1, $mock->count());
     }
 }

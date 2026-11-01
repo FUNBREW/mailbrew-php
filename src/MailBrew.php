@@ -7,6 +7,7 @@ namespace MailBrew;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use GuzzleHttp\Exception\RequestException;
+use GuzzleHttp\HandlerStack;
 
 class MailBrew
 {
@@ -14,12 +15,19 @@ class MailBrew
 
     private string $baseUrl;
 
+    /**
+     * @param  int  $maxRetries  How many times to retry on 429, waiting for Retry-After (default: 2)
+     * @param  callable|null  $handler  Guzzle handler (for tests)
+     */
     public function __construct(
         private string $apiKey,
         string $baseUrl = 'https://mailbrew.dev',
+        private int $maxRetries = 2,
+        ?callable $handler = null,
     ) {
         $this->baseUrl = rtrim($baseUrl, '/');
         $this->http = new Client([
+            'handler' => $handler ?? HandlerStack::create(),
             'base_uri' => $this->baseUrl,
             'headers' => [
                 'X-API-Key' => $this->apiKey,
@@ -252,6 +260,20 @@ class MailBrew
 
     private function request(string $method, string $path, ?array $data = null): array
     {
+        for ($attempt = 0; ; $attempt++) {
+            try {
+                return $this->send($method, $path, $data);
+            } catch (MailBrewException $e) {
+                if ($e->statusCode !== 429 || $attempt >= $this->maxRetries) {
+                    throw $e;
+                }
+                sleep($e->retryAfter ?? 1);
+            }
+        }
+    }
+
+    private function send(string $method, string $path, ?array $data): array
+    {
         try {
             $options = [];
             if ($data !== null && $method !== 'GET') {
@@ -272,10 +294,17 @@ class MailBrew
             $statusCode = $response ? $response->getStatusCode() : 0;
             $body = $response ? json_decode($response->getBody()->getContents(), true) : null;
             $message = $body['message'] ?? 'API request failed';
+            $retryAfter = $statusCode === 429 ? self::parseRetryAfter($response?->getHeaderLine('Retry-After') ?? '') : null;
 
-            throw new MailBrewException($message, $statusCode, $e);
+            throw new MailBrewException($message, $statusCode, $e, $retryAfter);
         } catch (GuzzleException $e) {
             throw new MailBrewException('Network error: '.$e->getMessage(), 0, $e);
         }
+    }
+
+    /** Retry-After は秒。無い・読めないときは 1 秒。 */
+    private static function parseRetryAfter(string $value): int
+    {
+        return ctype_digit(trim($value)) ? (int) trim($value) : 1;
     }
 }
