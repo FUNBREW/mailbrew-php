@@ -8,6 +8,8 @@ Official PHP SDK for the [MailBrew](https://mailbrew.dev) API — programmable d
 composer require mailbrew/sdk
 ```
 
+> **Note:** This package is not yet published to Packagist, and the source repository is private, so it cannot be installed yet. Until it is published, call the [REST API](https://mailbrew.dev/en/docs) directly: create an address (`POST /api/mailbrew/addresses`), wait for the email (`GET /api/mailbrew/addresses/{address}/emails/wait`) and read the code (`GET /api/mailbrew/addresses/{address}/emails/{id}/otp`) with `Http::` or `curl` and your API key in the `X-API-Key` header.
+
 ## Quick Start
 
 ```php

@@ -7,7 +7,7 @@
     "support": {
         "source": "https://github.com/FUNBREW/mailbrew-php",
         "issues": "https://github.com/FUNBREW/mailbrew-php/issues",
-        "docs": "https://mailbrew.dev/docs"
+        "docs": "https://mailbrew.dev/en/docs"
     },
     "require": {
         "php": ">=8.1",
