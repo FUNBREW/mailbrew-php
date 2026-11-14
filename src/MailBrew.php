@@ -11,6 +11,9 @@ use GuzzleHttp\HandlerStack;
 
 class MailBrew
 {
+    /** Page size the SDK asks for when it follows every page (the API's maximum). */
+    public const PAGE_SIZE = 100;
+
     private Client $http;
 
     private string $baseUrl;
@@ -91,10 +94,74 @@ class MailBrew
 
     // ── Emails ─────────────────────────────────────────────
 
-    /** List emails for an address. */
-    public function listEmails(string $address): array
+    /**
+     * List emails for an address (newest first).
+     *
+     * Without $limit, every email is returned: the SDK fetches pages of 100 and follows them.
+     * With $limit (1–100) and optional $before, only that one page is returned (see listEmailsPage).
+     */
+    public function listEmails(string $address, ?int $limit = null, ?int $before = null): array
     {
-        return $this->get("/api/mailbrew/addresses/{$address}/emails")['data'];
+        if ($limit !== null) {
+            return $this->listEmailsPage($address, $limit, $before)['emails'];
+        }
+
+        $emails = [];
+        $cursor = $before;
+        while (true) {
+            $page = $this->listEmailsPage($address, self::PAGE_SIZE, $cursor);
+            array_push($emails, ...$page['emails']);
+            if (! $page['hasMore'] || $page['nextBefore'] === null) {
+                return $emails;
+            }
+            $cursor = $page['nextBefore'];
+        }
+    }
+
+    /**
+     * Get one page of emails (newest first).
+     *
+     * @param  int  $limit  1–100
+     * @param  int|null  $before  Only emails older than this email id (pass nextBefore of the previous page)
+     * @return array{emails: array, hasMore: bool, nextBefore: ?int}
+     */
+    public function listEmailsPage(string $address, int $limit = self::PAGE_SIZE, ?int $before = null): array
+    {
+        $params = ['limit' => $limit];
+        if ($before !== null) {
+            $params['before'] = $before;
+        }
+        $res = $this->get("/api/mailbrew/addresses/{$address}/emails?".http_build_query($params));
+
+        return [
+            'emails' => $res['data'],
+            'hasMore' => (bool) ($res['meta']['has_more'] ?? false),
+            'nextBefore' => isset($res['meta']['next_before']) ? (int) $res['meta']['next_before'] : null,
+        ];
+    }
+
+    /** Delete one email (needs the emails:delete scope). */
+    public function deleteEmail(string $address, int $emailId): void
+    {
+        $this->request('DELETE', "/api/mailbrew/addresses/{$address}/emails/{$emailId}");
+    }
+
+    /** Delete every email of an address; the address stays. Returns the count (emails:delete scope). */
+    public function deleteAllEmails(string $address): int
+    {
+        return (int) $this->request('DELETE', "/api/mailbrew/addresses/{$address}/emails")['data']['deleted'];
+    }
+
+    /** Get the raw MIME source of an email (message/rfc822). */
+    public function getRawEmail(string $address, int $emailId): string
+    {
+        return $this->requestBody('GET', "/api/mailbrew/addresses/{$address}/emails/{$emailId}/raw", null, 'message/rfc822') ?? '';
+    }
+
+    /** Download an attachment's content (binary string). Attachment ids are in $email['attachments']. */
+    public function downloadAttachment(string $address, int $emailId, int $attachmentId): string
+    {
+        return $this->requestBody('GET', "/api/mailbrew/addresses/{$address}/emails/{$emailId}/attachments/{$attachmentId}", null, '*/*') ?? '';
     }
 
     /** Get email details. */
@@ -111,12 +178,35 @@ class MailBrew
         return $this->get("/api/mailbrew/addresses/{$address}/emails/{$emailId}/otp{$query}")['data']['code'];
     }
 
-    /** Extract links from an email. */
-    public function extractLinks(string $address, int $emailId, ?string $pattern = null): array
+    /**
+     * Extract link URLs from an email.
+     *
+     * @param  string|null  $pattern  Regex the URL must match
+     * @param  string|null  $text  Only links whose anchor text contains this (case-insensitive)
+     * @param  string|null  $kind  verify / password_reset / unsubscribe / other
+     * @return list<string>
+     */
+    public function extractLinks(string $address, int $emailId, ?string $pattern = null, ?string $text = null, ?string $kind = null): array
     {
-        $query = $pattern ? '?pattern='.urlencode($pattern) : '';
+        return $this->links($address, $emailId, $pattern, $text, $kind)['links'];
+    }
 
-        return $this->get("/api/mailbrew/addresses/{$address}/emails/{$emailId}/links{$query}")['data']['links'];
+    /**
+     * Extract links with their anchor text and kind. Same filters as extractLinks.
+     *
+     * @return list<array{url: string, text: ?string, kind: string}>
+     */
+    public function extractLinkItems(string $address, int $emailId, ?string $pattern = null, ?string $text = null, ?string $kind = null): array
+    {
+        return $this->links($address, $emailId, $pattern, $text, $kind)['items'] ?? [];
+    }
+
+    private function links(string $address, int $emailId, ?string $pattern, ?string $text, ?string $kind): array
+    {
+        $params = array_filter(['pattern' => $pattern, 'text' => $text, 'kind' => $kind], fn ($v) => $v !== null && $v !== '');
+        $query = $params ? '?'.http_build_query($params) : '';
+
+        return $this->get("/api/mailbrew/addresses/{$address}/emails/{$emailId}/links{$query}")['data'];
     }
 
     /**
@@ -237,18 +327,29 @@ class MailBrew
         return $this->get('/api/mailbrew/webhooks')['data'];
     }
 
-    /** Create a global webhook. */
-    public function createWebhook(string $url, ?array $events = null): array
+    /**
+     * Create a global webhook.
+     *
+     * @param  list<string>|null  $include  Extra payload fields: to_addresses, html_body, attachments, otp, links
+     * @param  array<string, mixed>|null  $filter  Only send matching emails: address_prefix and/or assertEmail conditions
+     */
+    public function createWebhook(string $url, ?array $events = null, ?array $include = null, ?array $filter = null): array
     {
         $body = ['url' => $url];
         if ($events !== null) {
             $body['events'] = $events;
         }
+        if ($include !== null) {
+            $body['include'] = $include;
+        }
+        if ($filter !== null) {
+            $body['filter'] = $filter;
+        }
 
         return $this->post('/api/mailbrew/webhooks', $body)['data'];
     }
 
-    /** Update a webhook. */
+    /** Update a webhook (url, events, is_active, include, filter; null clears include / filter). */
     public function updateWebhook(int $id, array $data): array
     {
         return $this->request('PUT', "/api/mailbrew/webhooks/{$id}", $data)['data'];
@@ -292,9 +393,17 @@ class MailBrew
 
     private function request(string $method, string $path, ?array $data = null): array
     {
+        $body = $this->requestBody($method, $path, $data);
+
+        return $body === null ? [] : (json_decode($body, true) ?? []);
+    }
+
+    /** Send (retrying on 429) and return the body as is. null on 204. */
+    private function requestBody(string $method, string $path, ?array $data = null, string $accept = 'application/json'): ?string
+    {
         for ($attempt = 0; ; $attempt++) {
             try {
-                return $this->send($method, $path, $data);
+                return $this->send($method, $path, $data, $accept);
             } catch (MailBrewException $e) {
                 if ($e->statusCode !== 429 || $attempt >= $this->maxRetries) {
                     throw $e;
@@ -304,10 +413,10 @@ class MailBrew
         }
     }
 
-    private function send(string $method, string $path, ?array $data): array
+    private function send(string $method, string $path, ?array $data, string $accept): ?string
     {
         try {
-            $options = [];
+            $options = ['headers' => ['Accept' => $accept]];
             if ($data !== null && $method !== 'GET') {
                 $options['json'] = $data;
             }
@@ -315,12 +424,10 @@ class MailBrew
             $response = $this->http->request($method, $path, $options);
 
             if ($response->getStatusCode() === 204) {
-                return [];
+                return null;
             }
 
-            $body = json_decode($response->getBody()->getContents(), true);
-
-            return $body ?? [];
+            return $response->getBody()->getContents();
         } catch (RequestException $e) {
             $response = $e->getResponse();
             $statusCode = $response ? $response->getStatusCode() : 0;

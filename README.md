@@ -68,17 +68,23 @@ test('signup with email verification', function () {
 | `listAddresses()` | List all addresses |
 | `getAddress(address)` | Get address details |
 | `deleteAddress(address)` | Delete an address |
-| `listEmails(address)` | List emails for an address |
-| `getEmail(address, emailId)` | Get email details |
+| `listEmails(address, limit?, before?)` | List emails (newest first). Without `limit`, every email (fetched 100 per request); with `limit` / `before`, just that page |
+| `listEmailsPage(address, limit?, before?)` | One page: `['emails' => ..., 'hasMore' => bool, 'nextBefore' => ?int]` |
+| `getEmail(address, emailId)` | Get email details (`attachments: [{id, filename, content_type, size}]`) |
+| `deleteEmail(address, emailId)` | Delete one email (`emails:delete` scope) |
+| `deleteAllEmails(address)` | Delete every email of the address; returns the count (`emails:delete` scope) |
+| `getRawEmail(address, emailId)` | Raw MIME source as a string |
+| `downloadAttachment(address, emailId, attachmentId)` | Attachment content (binary string) |
 | `extractOtp(address, emailId, pattern?)` | Extract OTP code from email |
-| `extractLinks(address, emailId, pattern?)` | Extract links from email |
+| `extractLinks(address, emailId, pattern?, text?, kind?)` | Extract link URLs. `text`: anchor text contains; `kind`: `verify` / `password_reset` / `unsubscribe` / `other` |
+| `extractLinkItems(address, emailId, pattern?, text?, kind?)` | Same filters; returns `[['url' => ..., 'text' => ..., 'kind' => ...]]` |
 | `assertEmail(address, emailId, assertions)` | Assert email properties (subject, from, to, body) |
 | `forwardEmail(address, emailId, to)` | Forward email |
 | `waitForEmails(address, timeout?, count?, since?)` | Wait for email(s) via server-side long-polling |
 | `waitForEmail(address, timeout?, since?)` | Wait for a single email (throws on timeout) |
 | `listWebhooks()` | List global webhooks |
-| `createWebhook(url, events?)` | Create a webhook |
-| `updateWebhook(id, data)` | Update a webhook |
+| `createWebhook(url, events?, include?, filter?)` | Create a webhook. `include`: extra payload fields (`to_addresses`, `html_body`, `attachments`, `otp`, `links`); `filter`: `address_prefix` and/or the conditions below |
+| `updateWebhook(id, data)` | Update a webhook (`url`, `events`, `is_active`, `include`, `filter`) |
 | `deleteWebhook(id)` | Delete a webhook |
 | `captureOtp(ttl?, timeout?, pattern?)` | Create address + prepare OTP capture |
 
@@ -91,5 +97,9 @@ test('signup with email verification', function () {
 ```php
 $email = $client->waitForEmail($address, where: ['subject_contains' => 'Verify'], extract: 'otp');
 $code = $email['extracted']['otp']['code'];
+
+$resetUrl = $client->extractLinks($address, $email['id'], kind: 'password_reset')[0];
+$raw = $client->getRawEmail($address, $email['id']);
+$client->deleteAllEmails($address); // empty a permanent mailbox between tests
 ```
 
