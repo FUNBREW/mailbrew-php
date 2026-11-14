@@ -18,16 +18,40 @@ class MailBrew
 
     private string $baseUrl;
 
+    /** @var array{run_id?: string, commit?: string, branch?: string} */
+    private array $ci;
+
+    private ?string $testName;
+
     /**
      * @param  int  $maxRetries  How many times to retry on 429, waiting for Retry-After (default: 2)
      * @param  callable|null  $handler  Guzzle handler (for tests)
+     * @param  array{run_id?: ?string, commit?: ?string, branch?: ?string}|false|null  $ci
+     *                                                                                      The CI run sent with every request (X-MailBrew-Run-Id / -Commit / -Branch).
+     *                                                                                      null (default): detected from the environment (MAILBREW_RUN_ID /
+     *                                                                                      MAILBREW_COMMIT / MAILBREW_BRANCH, then GitHub Actions, GitLab CI,
+     *                                                                                      CircleCI). false: send nothing. An array sets the values.
+     * @param  string|null  $testName  Test name sent as X-MailBrew-Test (see withTest)
      */
     public function __construct(
         private string $apiKey,
         string $baseUrl = 'https://mailbrew.dev',
         private int $maxRetries = 2,
         ?callable $handler = null,
+        array|false|null $ci = null,
+        ?string $testName = null,
     ) {
+        if ($ci === false) {
+            $this->ci = [];
+        } elseif (is_array($ci)) {
+            $this->ci = array_map('strval', array_filter(
+                array_intersect_key($ci, ['run_id' => 1, 'commit' => 1, 'branch' => 1]),
+                fn ($v) => $v !== null && $v !== '',
+            ));
+        } else {
+            $this->ci = self::detectCiRun();
+        }
+        $this->testName = $testName !== null && $testName !== '' ? $testName : null;
         $this->baseUrl = rtrim($baseUrl, '/');
         $this->http = new Client([
             'handler' => $handler ?? HandlerStack::create(),
@@ -49,6 +73,100 @@ class MailBrew
     public function getBaseUrl(): string
     {
         return $this->baseUrl;
+    }
+
+    /**
+     * The CI run this client sends (empty when disabled or not in CI).
+     *
+     * @return array{run_id?: string, commit?: string, branch?: string}
+     */
+    public function getCi(): array
+    {
+        return $this->ci;
+    }
+
+    public function getTestName(): ?string
+    {
+        return $this->testName;
+    }
+
+    /**
+     * A copy of this client that sends the test's name (X-MailBrew-Test) with every request,
+     * so results on the Test Results screen show which test made them. The original is unchanged.
+     */
+    public function withTest(string $name): static
+    {
+        $copy = clone $this;
+        $copy->testName = $name !== '' ? $name : null;
+
+        return $copy;
+    }
+
+    /**
+     * Detect the CI run from environment variables (getenv() by default).
+     * MAILBREW_RUN_ID / MAILBREW_COMMIT / MAILBREW_BRANCH win, then GitHub Actions, GitLab CI, CircleCI.
+     *
+     * @param  array<string, string>|null  $env
+     * @return array{run_id?: string, commit?: string, branch?: string}
+     */
+    public static function detectCiRun(?array $env = null): array
+    {
+        $env ??= getenv();
+        $pick = function (string ...$names) use ($env): ?string {
+            foreach ($names as $name) {
+                $value = trim((string) ($env[$name] ?? ''));
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+
+            return null;
+        };
+
+        $runId = $commit = $branch = null;
+        if ($pick('GITHUB_RUN_ID') !== null) {
+            $runId = $pick('GITHUB_RUN_ID').'-'.($pick('GITHUB_RUN_ATTEMPT') ?? '1');
+            $commit = $pick('GITHUB_SHA');
+            $branch = $pick('GITHUB_HEAD_REF', 'GITHUB_REF_NAME');
+        } elseif ($pick('CI_PIPELINE_ID') !== null) {
+            $runId = $pick('CI_PIPELINE_ID');
+            $commit = $pick('CI_COMMIT_SHA');
+            $branch = $pick('CI_COMMIT_REF_NAME');
+        } elseif ($pick('CIRCLE_WORKFLOW_ID') !== null) {
+            $runId = $pick('CIRCLE_WORKFLOW_ID');
+            $commit = $pick('CIRCLE_SHA1');
+            $branch = $pick('CIRCLE_BRANCH');
+        }
+
+        return array_filter([
+            'run_id' => $pick('MAILBREW_RUN_ID') ?? $runId,
+            'commit' => $pick('MAILBREW_COMMIT') ?? $commit,
+            'branch' => $pick('MAILBREW_BRANCH') ?? $branch,
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * Headers that tie requests to the CI run and test (only the values that are known).
+     *
+     * @return array<string, string>
+     */
+    private function ciHeaders(): array
+    {
+        $headers = [];
+        if (isset($this->ci['run_id'])) {
+            $headers['X-MailBrew-Run-Id'] = $this->ci['run_id'];
+        }
+        if (isset($this->ci['commit'])) {
+            $headers['X-MailBrew-Commit'] = $this->ci['commit'];
+        }
+        if (isset($this->ci['branch'])) {
+            $headers['X-MailBrew-Branch'] = rawurlencode($this->ci['branch']);
+        }
+        if ($this->testName !== null) {
+            $headers['X-MailBrew-Test'] = rawurlencode($this->testName);
+        }
+
+        return $headers;
     }
 
     // ── Addresses ──────────────────────────────────────────
@@ -419,7 +537,7 @@ class MailBrew
     private function send(string $method, string $path, ?array $data, string $accept): ?string
     {
         try {
-            $options = ['headers' => ['Accept' => $accept]];
+            $options = ['headers' => ['Accept' => $accept] + $this->ciHeaders()];
             if ($data !== null && $method !== 'GET') {
                 $options['json'] = $data;
             }

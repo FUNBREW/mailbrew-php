@@ -51,6 +51,37 @@ test('signup with email verification', function () {
 });
 ```
 
+## CI run results
+
+Every request carries the CI run it came from, so the **Test Results** screen in the dashboard groups assertion results by run and flags **flaky** tests (the same commit both passed and failed).
+
+| Header | Value |
+|--------|-------|
+| `X-MailBrew-Run-Id` | The CI run (`<GITHUB_RUN_ID>-<GITHUB_RUN_ATTEMPT>` on GitHub Actions) |
+| `X-MailBrew-Commit` | Commit SHA |
+| `X-MailBrew-Branch` | Branch name (URL-encoded) |
+| `X-MailBrew-Test` | Test name (URL-encoded) |
+
+A header is sent only when its value is known. The run is read from the environment when the client is created:
+
+| | Run | Commit | Branch |
+|---|---|---|---|
+| Override (wins) | `MAILBREW_RUN_ID` | `MAILBREW_COMMIT` | `MAILBREW_BRANCH` |
+| GitHub Actions | `GITHUB_RUN_ID`-`GITHUB_RUN_ATTEMPT` | `GITHUB_SHA` | `GITHUB_HEAD_REF`, else `GITHUB_REF_NAME` |
+| GitLab CI | `CI_PIPELINE_ID` | `CI_COMMIT_SHA` | `CI_COMMIT_REF_NAME` |
+| CircleCI | `CIRCLE_WORKFLOW_ID` | `CIRCLE_SHA1` | `CIRCLE_BRANCH` |
+
+```php
+// Attach the test's name (an immutable copy; the original is unchanged)
+$mb = (new MailBrew(getenv('MAILBREW_API_KEY')))->withTest('Signup › sends a verification email');
+
+// Set the run yourself, or turn it off
+new MailBrew($key, ci: ['run_id' => 'nightly-42', 'commit' => 'abc1234', 'branch' => 'main']);
+new MailBrew($key, ci: false); // sends no run headers
+```
+
+In PHPUnit / Pest, `$client->withTest($this->name())` names each test.
+
 ## API
 
 ### `new MailBrew(apiKey, baseUrl)`
@@ -59,6 +90,9 @@ test('signup with email verification', function () {
 |-----------|------|---------|
 | `$apiKey` | `string` | *(required)* |
 | `$baseUrl` | `string` | `https://mailbrew.dev` |
+| `$maxRetries` | `int` | `2` |
+| `ci:` | `array\|false\|null` | `null` = detected from the environment (see [CI run results](#ci-run-results)); `false` sends nothing |
+| `testName:` | `?string` | sent as `X-MailBrew-Test` (see `withTest($name)`) |
 
 ### Methods
 
