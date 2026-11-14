@@ -333,7 +333,7 @@ class MailBrew
      * @param  list<string>|null  $include  Extra payload fields: to_addresses, html_body, attachments, otp, links
      * @param  array<string, mixed>|null  $filter  Only send matching emails: address_prefix and/or assertEmail conditions
      */
-    public function createWebhook(string $url, ?array $events = null, ?array $include = null, ?array $filter = null): array
+    public function createWebhook(string $url, ?array $events = null, ?array $include = null, ?array $filter = null, ?bool $redactHistory = null): array
     {
         $body = ['url' => $url];
         if ($events !== null) {
@@ -344,6 +344,9 @@ class MailBrew
         }
         if ($filter !== null) {
             $body['filter'] = $filter;
+        }
+        if ($redactHistory !== null) {
+            $body['redact_history'] = $redactHistory;
         }
 
         return $this->post('/api/mailbrew/webhooks', $body)['data'];
