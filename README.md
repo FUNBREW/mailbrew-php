@@ -81,3 +81,15 @@ test('signup with email verification', function () {
 | `updateWebhook(id, data)` | Update a webhook |
 | `deleteWebhook(id)` | Delete a webhook |
 | `captureOtp(ttl?, timeout?, pattern?)` | Create address + prepare OTP capture |
+
+### Conditions
+
+`assertEmail`, `expectSequence` steps and the `where` argument of `waitForEmail(s)` / `captureOtp` take the same conditions
+(`where` cannot use `to`): `subject`, `subject_contains`, `subject_matches`, `from`, `to`, `body_contains`, `body_not_contains`,
+`body_matches`, `html_contains`, `header` (`['name' => ..., 'value' => ...]`), `has_attachment`, `attachment_filename`.
+
+```php
+$email = $client->waitForEmail($address, where: ['subject_contains' => 'Verify'], extract: 'otp');
+$code = $email['extracted']['otp']['code'];
+```
+

@@ -120,8 +120,12 @@ class MailBrew
     }
 
     /**
-     * Assert email properties (subject, from, to, body).
+     * Assert email properties.
      *
+     * Keys: subject, subject_contains, subject_matches, from, to, body_contains, body_not_contains,
+     * body_matches, html_contains, header (['name' => ..., 'value' => ...]), has_attachment (bool), attachment_filename.
+     *
+     * @param  array<string, mixed>  $assertions
      * @return array{passed: bool, email_id: int, results: array}
      */
     public function assertEmail(string $address, int $emailId, array $assertions): array
@@ -142,7 +146,7 @@ class MailBrew
     /**
      * Verify a sequence of emails arrives in order.
      *
-     * @param  array<int, array{subject?: string, subject_contains?: string, from?: string, to?: string, body_contains?: string}>  $steps
+     * @param  array<int, array<string, mixed>>  $steps  Conditions for each step (same keys as assertEmail)
      * @return array{passed: bool, steps: array}
      */
     public function expectSequence(string $address, array $steps, int $timeout = 30): array
@@ -165,15 +169,21 @@ class MailBrew
      * Wait for email(s) to arrive using server-side long-polling.
      *
      * @param  int  $timeout  Timeout in seconds (max 60)
-     * @param  int  $count  Number of emails to wait for
+     * @param  int  $count  Number of matching emails to wait for
      * @param  string|null  $since  Only return emails received after this ISO8601 timestamp
+     * @param  array<string, mixed>  $where  Only wait for emails that match (same keys as assertEmail, except "to"; header is ['name' => ..., 'value' => ...])
+     * @param  list<string>|string|null  $extract  "otp" and/or "links": adds "extracted" to each email
      * @return array List of emails (may be empty if timeout)
      */
-    public function waitForEmails(string $address, int $timeout = 30, int $count = 1, ?string $since = null): array
+    public function waitForEmails(string $address, int $timeout = 30, int $count = 1, ?string $since = null, array $where = [], array|string|null $extract = null): array
     {
         $params = ['timeout' => min($timeout, 60), 'count' => $count];
         if ($since !== null) {
             $params['since'] = $since;
+        }
+        $params += self::whereParams($where);
+        if ($extract !== null && $extract !== [] && $extract !== '') {
+            $params['extract'] = is_array($extract) ? implode(',', $extract) : $extract;
         }
 
         $query = http_build_query($params);
@@ -184,17 +194,39 @@ class MailBrew
     /**
      * Wait for a single email to arrive.
      *
+     * @param  array<string, mixed>  $where  Only wait for an email that matches (same keys as assertEmail, except "to")
+     * @param  list<string>|string|null  $extract  "otp" and/or "links": adds "extracted" to the email
+     *
      * @throws MailBrewException If no email arrives within the timeout
      */
-    public function waitForEmail(string $address, int $timeout = 30, ?string $since = null): array
+    public function waitForEmail(string $address, int $timeout = 30, ?string $since = null, array $where = [], array|string|null $extract = null): array
     {
-        $emails = $this->waitForEmails($address, $timeout, 1, $since);
+        $emails = $this->waitForEmails($address, $timeout, 1, $since, $where, $extract);
 
         if (empty($emails)) {
             throw new MailBrewException('Timeout waiting for email');
         }
 
         return $emails[0];
+    }
+
+    /**
+     * wait の条件をクエリに直す。header は header[name] / header[value]、真偽は "true" / "false"。
+     *
+     * @param  array<string, mixed>  $where
+     * @return array<string, mixed>
+     */
+    private static function whereParams(array $where): array
+    {
+        $params = [];
+        foreach ($where as $key => $value) {
+            if ($value === null) {
+                continue;
+            }
+            $params[$key] = is_bool($value) ? ($value ? 'true' : 'false') : $value;
+        }
+
+        return $params;
     }
 
     // ── Webhooks ───────────────────────────────────────────
@@ -239,11 +271,11 @@ class MailBrew
      *   $result = $capture->waitAndExtract();
      *   echo $result['code']; // "847291"
      */
-    public function captureOtp(int $ttl = 300, int $timeout = 30, ?string $pattern = null): OtpCapture
+    public function captureOtp(int $ttl = 300, int $timeout = 30, ?string $pattern = null, array $where = []): OtpCapture
     {
         $addr = $this->createAddress(ttl: $ttl);
 
-        return new OtpCapture($this, $addr['address'], $timeout, $pattern);
+        return new OtpCapture($this, $addr['address'], $timeout, $pattern, $where);
     }
 
     // ── HTTP helpers ───────────────────────────────────────
